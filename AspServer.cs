@@ -33,11 +33,20 @@ namespace LogicReinc.Asp
     public class AspServer
     {
         private IHost host = null;
+        private IHostApplicationLifetime lifecycle = null;
+        private List<Action<IServiceCollection, IMvcBuilder>> _callConfigureService = new List<Action<IServiceCollection, IMvcBuilder>>();
+        private List<Action<IApplicationBuilder>> _callConfigure = new List<Action<IApplicationBuilder>>();
+
         private List<(string, Func<HttpContext, Task>)> _endpoints = new List<(string, Func<HttpContext, Task>)>();
         private AuthenticationService _authService = null;
         protected List<Assembly> _assemblies = new List<Assembly>();
         private Dictionary<string, List<WebSocketClient>> _wsClients = new Dictionary<string, List<WebSocketClient>>();
         
+        public bool ConsoleLifetime { get; set; }
+
+        private Action<JsonOptions> _jsonOptionSetter = null;
+        
+
         public List<DirectoryDescriptor> RegisteredDirectories { get; private set; } = new List<DirectoryDescriptor>();
         public List<Type> RegisteredControllers { get; private set; } = new List<Type>();
         public List<WebSocketDescriptor> RegisteredWebSockets { get; private set; } = new List<WebSocketDescriptor>();
@@ -179,8 +188,19 @@ namespace LogicReinc.Asp
         public async Task Stop()
         {
             await host.StopAsync();
+            host.Dispose();
         }
 
+        //Optional Additional Configures
+        public void Configure(Action<IApplicationBuilder> act)
+        {
+            _callConfigure.Add(act);
+        }
+        public void ConfigureService(Action<IServiceCollection, IMvcBuilder> act)
+        {
+            _callConfigureService.Add(act);
+        }
+        public void SetJsonOptions(Action<JsonOptions> ops) => _jsonOptionSetter = ops;
 
         //Internal
         internal AuthenticationService GetAuthenticationService()
@@ -202,6 +222,9 @@ namespace LogicReinc.Asp
                 {
                     apm.FeatureProviders.Add(new FeatureProvider(this));
                 });
+            if (_jsonOptionSetter != null)
+                c = c.AddJsonOptions(_jsonOptionSetter);
+
             foreach (Assembly a in _assemblies)
                 c.AddApplicationPart(a);
 
@@ -212,14 +235,17 @@ namespace LogicReinc.Asp
 
             s.AddRazorPages();
 
+            foreach (var act in _callConfigureService)
+                act(s, c);
             
         }
         protected void Configure(IApplicationBuilder app, IHostApplicationLifetime cycle)
         {
+            lifecycle = cycle;
             //app.UseHttpsRedirection();
-            app.UseBlazorFrameworkFiles();
+            //app.UseBlazorFrameworkFiles();
 
-            foreach(DirectoryDescriptor stat in RegisteredDirectories)
+            foreach (DirectoryDescriptor stat in RegisteredDirectories)
                 app.UseStaticFiles(new StaticFileOptions()
                 {
                     FileProvider = new PhysicalFileProvider(stat.Directory),
@@ -278,8 +304,9 @@ namespace LogicReinc.Asp
                                 }
                                 else
                                     await client.Socket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Group does not exist", CancellationToken.None);
+                                return;
                             }
-                            return;
+
                         }
                     }
                     await n();
@@ -298,10 +325,14 @@ namespace LogicReinc.Asp
                 foreach (var endpoint in _endpoints)
                     endpoints.Map(endpoint.Item1, new RequestDelegate(endpoint.Item2));
             });
+
+            foreach (var act in _callConfigure)
+                act(app);
         }
 
-        protected virtual IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
+        protected virtual IHostBuilder CreateHostBuilder(string[] args)
+        {
+            var x = Host.CreateDefaultBuilder(args)
                 .ConfigureServices(s =>
                 {
                     ConfigureServices(s);
@@ -311,6 +342,10 @@ namespace LogicReinc.Asp
                     webBuilder.UseUrls(Urls);
                     webBuilder.UseStartup<Startup>();
                 });
+            if (ConsoleLifetime)
+                x = x.UseConsoleLifetime(opts => opts.SuppressStatusMessages = true);
+            return x;
+        }
 
 
 
