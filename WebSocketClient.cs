@@ -55,7 +55,7 @@ namespace LogicReinc.Asp
                         {
                             result = await Socket.ReceiveAsync(buffer, _cancelToken.Token);
                             type = result.MessageType;
-                            str.Write(buffer.Array, buffer.Offset, buffer.Count);
+                            str.Write(buffer.Array, buffer.Offset, result.Count);
                         }
                         while (!result.EndOfMessage);
                         //Construct Message
