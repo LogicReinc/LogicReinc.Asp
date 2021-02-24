@@ -57,6 +57,21 @@ namespace LogicReinc.Asp
         /// Enabling this will add the SyncController on start, providing javascript bindings for your api
         /// </summary>
         public bool EnabledSync { get; set; } = true;
+
+        /// <summary>
+        /// Allows clients to request generated documentation (from C# code) in their Sync config. Used for automatic API documentation.
+        /// </summary>
+        public bool EnableSyncDocumentation { get; set; } = false;
+        /// <summary>
+        /// Allows clients that are authenticated to request generated documentation (from C# code) in their Sync config. Used for automatic API documentation.
+        /// </summary>
+        public bool EnableSyncDocumentationAuthenticated { get; set; } = false;
+        /// <summary>
+        /// When Sync documentation is requested, it will add type structures for better documentation (TODO)
+        /// </summary>
+        public bool EnableSyncDocumentationDeep { get; set; } = false;
+
+
         /// <summary>
         /// Enabling this will add the AuthenticationController on start as well as required middleware, providing authentication for your api
         /// Use SetAuthentication to enable
@@ -187,7 +202,8 @@ namespace LogicReinc.Asp
 
         public async Task Stop()
         {
-            await host.StopAsync();
+            host.StopAsync();
+            Thread.Sleep(300);
             host.Dispose();
         }
 
@@ -278,6 +294,9 @@ namespace LogicReinc.Asp
                                 //Do Authentication for WebSocket
                                 if (ws.Authenticated)
                                 {
+                                    if (!context.Items.ContainsKey("Authentication") && _authService != null)
+                                        AuthenticationWare.HandleAuthentication(_authService, context);
+
 
                                     AuthUser user = (AuthUser)context.Items["Authentication"];
                                     if (user == null)

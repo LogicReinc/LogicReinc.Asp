@@ -40,6 +40,10 @@ function SyncAPI(config, token) {
                 .then(data => {
                     if (cb)
                         cb(data);
+                })
+                .catch(error => {
+                    if (cb)
+                        cb(undefined, error);
                 });
         };
     }
@@ -70,8 +74,12 @@ function SyncAPI(config, token) {
             })
                 .then(response => response.json())
                 .then(data => {
-                    if(cb)
+                    if (cb)
                         cb(data);
+                })
+                .catch(error => {
+                    if (cb)
+                        cb(undefined, error);
                 });
         };
     }
@@ -123,7 +131,11 @@ function SyncAPI(config, token) {
                 url += "//" + loc.host + websocket.Url
 
                 me[websocket.Name] = (obj) => {
-                    var socket = new WebSocket(url);
+                    var socket = undefined;
+                    if (!me.token)
+                        socket = new WebSocket(url);
+                    else
+                        socket = new WebSocket(url, ["auth_" + me.token]);
                     if (!obj)
                         obj = {};
                     obj.socket = socket;
@@ -170,6 +182,7 @@ function SyncAPI(config, token) {
         })
             .then((resp) => resp.json())
             .then((data) => {
+                this.token = t;
                 this.applyConfig(data);
                 if (cb)
                     cb(true);
