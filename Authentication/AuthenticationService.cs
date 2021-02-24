@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 
 namespace LogicReinc.Asp.Authentication
 {
+
     /// <summary>
     /// Abstract/Interface for authentication, implement and pass to SetAuthentication
+    /// (Decoupled version)
     /// </summary>
     public abstract class AuthenticationService
     {
@@ -55,11 +57,58 @@ namespace LogicReinc.Asp.Authentication
             public string UserID => _service.GetUserID(UserObject);
             public string[] Roles => _service.GetRoles(UserObject);
 
+            public T UserObjectAs<T>() => (T)UserObject;
+
             public AuthUser(AuthenticationService service, object user)
             {
                 UserObject = user;
                 _service = service;
             }
         }
+    }
+
+    /// <summary>
+    /// Abstract/Interface for authentication, implement and pass to SetAuthentication
+    /// (Coupled version)
+    /// </summary>
+    /// <typeparam name="T">User implementation with GetRoles and GetID</typeparam>
+    public abstract class AuthenticationService<T> : AuthenticationService where T : IAuthUser
+    {
+        private TimeSpan _tokenExpire = TimeSpan.FromHours(24);
+        public override TimeSpan Expires => _tokenExpire;
+
+
+        public AuthenticationService() { }
+        public AuthenticationService(TimeSpan expireToken)
+        {
+            _tokenExpire = expireToken;
+        }
+
+        public abstract IAuthUser AuthenticateAuthUser(string user, string pass);
+        public abstract IAuthUser GetAuthUser(string id);
+
+        public override object Authenticate(string user, string pass)
+        {
+            return AuthenticateAuthUser(user, pass);
+        }
+        public override object GetUser(string id)
+        {
+            return GetAuthUser(id);
+        }
+
+        public override string[] GetRoles(object obj)
+        {
+            return ((IAuthUser)obj).GetRoles();
+        }
+        public override string GetUserID(object obj)
+        {
+            return ((IAuthUser)obj).GetID();
+        }
+    }
+
+    public interface IAuthUser
+    {
+        string[] GetRoles();
+        string GetID();
     }
 }

@@ -10,7 +10,7 @@ namespace LogicReinc.Asp
     /// <summary>
     /// Basic class to add triggers at certain intervals
     /// </summary>
-    public class Lifecycle
+    public class LifeCycle
     {
         private bool _active = false;
         private int _loopID = 0;
@@ -23,7 +23,7 @@ namespace LogicReinc.Asp
 
         private List<LifeCycleAction> _actions = new List<LifeCycleAction>();
 
-        public Lifecycle()
+        public LifeCycle()
         {
             Type type = GetType();
 
@@ -88,13 +88,13 @@ namespace LogicReinc.Asp
 
         protected class LifeCycleAction
         {
-            public Lifecycle Parent { get; private set; }
+            public LifeCycle Parent { get; private set; }
             public MethodInfo Method { get; set; }
             public TimeSpan Interval { get; set; }
             public DateTime LastTrigger { get; set; } = DateTime.MinValue;
             public DateTime NextTrigger => LastTrigger.Add(Interval);
 
-            public LifeCycleAction(Lifecycle parent, MethodInfo method, TimeSpan timespan)
+            public LifeCycleAction(LifeCycle parent, MethodInfo method, TimeSpan timespan)
             {
                 Parent = parent;
                 Method = method;

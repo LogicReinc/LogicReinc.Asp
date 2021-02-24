@@ -39,6 +39,9 @@ namespace LogicReinc.Asp
         {
             Active = true;
             ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[4096]);
+
+            OnConnected();
+
             while (Active)
             {
                 try
@@ -81,10 +84,13 @@ namespace LogicReinc.Asp
                         }
                     }
                     //Call Handler
-                    if (resultStr != null)
-                        HandleString(resultStr);
-                    else if (resultBinary != null)
-                        HandleBytes(resultBinary);
+                    Task.Run(() =>
+                    {
+                        if (resultStr != null)
+                            HandleString(resultStr);
+                        else if (resultBinary != null)
+                            HandleBytes(resultBinary);
+                    });
                 }
                 catch(Exception ex)
                 {
