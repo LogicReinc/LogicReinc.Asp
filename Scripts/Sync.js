@@ -6,6 +6,12 @@ function SyncAPI(config, token) {
 
     this.Authenticated = false;
 
+    this.wrapper = function (call, data, err, act) { call(data, err); };
+    this.$wrapper = function (call, data, err, act) { call(data, err); };
+
+    this.beforeRequest = function (act, url, args) { };
+    this.afterRequest = function (act, data) { };
+
     function applyArguments(act, args) {
         var url = act.Url;
         for (var i = 0; i < act.Arguments.length; i++) {
@@ -19,7 +25,7 @@ function SyncAPI(config, token) {
         return url;
     }
 
-    function requestWithoutBody(act) {
+    function requestWithoutBody(act, settings) {
         return function () {
             var args = [].slice.call(arguments);
             var cb = args.pop();
@@ -27,27 +33,20 @@ function SyncAPI(config, token) {
                 args.push(cb);
                 cb = undefined;
             }
+
+            cb = patchCallback(cb, settings, act);
 
             var headers = {};
             if (me.token)
                 headers.auth = me.token;
 
-            fetch(applyArguments(act, args), {
+            return handleFetch(applyArguments(act, args), {
                 method: act.Method,
                 headers: headers
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (cb)
-                        cb(data);
-                })
-                .catch(error => {
-                    if (cb)
-                        cb(undefined, error);
-                });
+            }, cb, act);
         };
     }
-    function requestWithBody(act, cb) {
+    function requestWithBody(act, settings) {
         return function () {
             var args = [].slice.call(arguments);
             var cb = args.pop();
@@ -56,32 +55,106 @@ function SyncAPI(config, token) {
                 cb = undefined;
             }
 
+            cb = patchCallback(cb, settings, act);
+
             var body = args.pop();
 
-            if ((typeof body) != "string")
+            //if ((typeof body) != "string")
+            if (body && body instanceof FormData)
+                body = body;
+            else if(body)
                 body = JSON.stringify(body);
 
             var headers = {
                 "Content-Type": "application/json"
             };
+            if (body && body instanceof FormData)
+                headers = undefined;
 
             if (me.token)
                 headers.auth = me.token;
-            fetch(applyArguments(act, args), {
+
+            return handleFetch(applyArguments(act, args), {
                 method: act.Method,
                 headers: headers,
                 body: body
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (cb)
-                        cb(data);
-                })
-                .catch(error => {
-                    if (cb)
-                        cb(undefined, error);
-                });
+            }, cb, act);
         };
+    }
+    function patchCallback(cb, settings, act) {
+        if (!cb)
+            return cb;
+        if (settings?.$wrap)
+            return (data, err) => me.$wrapper(cb, data, err, act);
+        else
+            return (data, err) => me.wrapper(cb, data, err, act);
+    }
+
+    function handleFetch(url, settings, cb, act) {
+        return new Promise((resolve, reject) => {
+            if (me.beforeRequest)
+                me.beforeRequest(act, url, settings);
+            if (act?.beforeRequest)
+                act.beforeRequest(url, settings);
+
+            fetch(url, settings)
+                .then(resp => {
+                    if (resp.ok)
+                        return resp.text()
+                            .then(txt => {
+                                return {
+                                    success: true,
+                                    data: (txt.length > 0) ? JSON.parse(txt) : txt,
+                                    resp: resp
+                                };
+                            });
+                    else
+                        return resp.text()
+                            .then(txt => {
+                                return {
+                                    success: false,
+                                    data: txt,
+                                    resp: resp
+                                }
+                            });
+                })
+                .then(result => {
+                    if (result.success) {
+                        if (me.afterRequest)
+                            me.afterRequest(act, result.data);
+                        if (act.afterRequest)
+                            act.afterRequest(result.data);
+
+                        if (act.modifier)
+                            result.data = act.modifier(result.data);
+
+                        if (cb)
+                            cb(result.data);
+                        resolve(result.data);
+                    }
+                    else {
+                        var error = {
+                            status: result.resp.status,
+                            content: result.data
+                        };
+                        if (me.onRequestError)
+                            me.onRequestError(act, error);
+                        if (act.onRequestError)
+                            act.onRequestError(error);
+                        if (cb)
+                            cb(undefined, error);
+                        reject(error);
+                    }
+                })
+                .catch(x => {
+                    var error = {
+                        status: -1,
+                        content: "Handling Error:" + x
+                    };
+                    if (cb) cb(undefined, error);
+                    reject(error);
+                });
+        });
     }
 
     this.setToken = (t) => {
@@ -105,17 +178,15 @@ function SyncAPI(config, token) {
                 for (var x = 0; x < controller.Actions.length; x++) {
                     var act = controller.Actions[x];
 
-                    switch (act.Method) {
-                        case "GET":
-                            controllerProp[act.Name] = requestWithoutBody(act);
-                            break;
-                        case "POST":
-                            controllerProp[act.Name] = requestWithBody(act);
-                            break;
-                        case "PUT":
-                            controllerProp[act.Name] = requestWithBody(act);
-                            break;
+                    if (act.HasBody) {
+                        controllerProp[act.Name] = requestWithBody(act);
+                        controllerProp["$" + act.Name] = requestWithBody(act, { $wrap: true })
                     }
+                    else {
+                        controllerProp[act.Name] = requestWithoutBody(act);
+                        controllerProp["$" + act.Name] = requestWithoutBody(act, { $wrap: true });
+                    }
+                    controllerProp[act.Name + "_Method"] = act;
                 }
             }
         }

@@ -1,5 +1,6 @@
 ﻿using LogicReinc.Asp.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,13 +19,18 @@ namespace LogicReinc.Asp
                 return null;
             return (AuthenticationService.AuthUser)request.HttpContext.Items["Authentication"];
         }
-        public static object GetAuthenticationUser<T>(this HttpRequest request)
+        public static T GetAuthenticationUser<T>(this HttpRequest request)
         {
             if (!request.HttpContext.Items.ContainsKey("Authentication"))
-                return null;
+                return default(T);
             return (T)((AuthenticationService.AuthUser)request.HttpContext.Items["Authentication"]).UserObject;
         }
-
+        public static T GetAuthContext<T>(this ControllerBase controller)
+        {
+            if (!controller.Request.HttpContext.Items.ContainsKey("Authentication"))
+                return default(T);
+            return (T)((AuthenticationService.AuthUser)controller.Request.HttpContext.Items["Authentication"]).UserObject;
+        }
 
         public static string GetResourceText(this Assembly asm, string path)
         {

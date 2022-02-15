@@ -2,7 +2,7 @@
 
   <PropertyGroup>
 	<PackageId>LogicReinc.Asp</PackageId>
-	<Version>0.1.3</Version>
+	<Version>0.1.4</Version>
 	<Authors>LogicReinc</Authors>
 	<Title>LogicReinc.Asp</Title>
 	<Description>A Wrapper framework around ASP.NET Core 3 that is less verbose, offering various build in features such as automatic javascript api binding, authentication and websockets.
@@ -14,6 +14,7 @@
     <RepositoryUrl>https://github.com/LogicReinc/LogicReinc.Asp</RepositoryUrl>
     <PackageProjectUrl>https://github.com/LogicReinc/LogicReinc.Asp</PackageProjectUrl>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Fix up Sync &amp; Features</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

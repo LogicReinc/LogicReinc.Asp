@@ -200,6 +200,9 @@ namespace LogicReinc.Asp.Controllers
         [JsonPropertyName("Documentation")]
         public DocumentationMember Documentation { get; set; }
 
+        [JsonPropertyName("HasBody")]
+        public bool HasBody { get; set; }
+
         public SyncRouteDescriptor() { }
         public SyncRouteDescriptor(RouteMeta meta, string url, bool documentation = false)
         {
@@ -210,6 +213,9 @@ namespace LogicReinc.Asp.Controllers
                 .Select(x => x.Name).ToArray();
             ArgumentTypes = meta.ActionMethod.GetParameters()
                 .Select(x => x.ParameterType.Name).ToArray();
+            HasBody = meta.ActionMethod.GetParameters()
+                .Any(x => x.GetCustomAttribute<FromBodyAttribute>() != null || x.GetCustomAttribute<FromFormAttribute>() != null) ||
+                meta.ActionMethod.GetCustomAttribute<SyncHasBodyAttribute>() != null;
 
             if (documentation)
             {
@@ -323,5 +329,10 @@ namespace LogicReinc.Asp.Controllers
             Summary = description;
             Type = type;
         }
+    }
+
+    public class SyncHasBodyAttribute : Attribute
+    {
+
     }
 }

@@ -332,6 +332,20 @@ namespace LogicReinc.Asp
                 });
             }
 
+            app.Use(async (context, next) =>
+            {
+                try
+                {
+                    await next();
+                }
+                catch(AspException ex)
+                {
+                    context.Response.StatusCode = ex.Status;
+                    await context.Response.WriteAsync(ex.Message);
+                    return;
+                }
+            });
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapRazorPages();
